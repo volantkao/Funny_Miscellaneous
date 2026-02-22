@@ -1,0 +1,271 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>D2R 官方術士技能模擬器</title>
+<style>
+    body {
+        background-color: #0b0b0b; color: #d3b589; font-family: 'Palatino Linotype', serif;
+        display: flex; flex-direction: column; align-items: center; user-select: none; margin: 0; padding: 20px;
+    }
+    h1 { color: #8b0000; text-shadow: 2px 2px 4px #000; margin-bottom: 5px; }
+    .subheader { color: #a99877; margin-bottom: 20px; font-size: 0.9rem; }
+    .status-bar {
+        font-size: 1.4rem; font-weight: bold; margin-bottom: 25px; background-color: #1a1a1a;
+        padding: 10px 30px; border: 2px solid #4a3c22; border-radius: 5px; box-shadow: 0 4px 8px rgba(0,0,0,0.8);
+    }
+    #points-left { color: #fff; }
+    .trees-wrapper { display: flex; gap: 30px; position: relative; justify-content: center; }
+    .tree-panel {
+        background-color: #111; border: 2px solid #3a3a3a; padding: 15px; border-radius: 8px;
+        position: relative; width: 280px; box-shadow: inset 0 0 20px #000;
+    }
+    .tree-title {
+        text-align: center; color: #a99877; font-size: 1.2rem; border-bottom: 1px solid #4a3c22;
+        padding-bottom: 10px; margin: 0 0 20px 0;
+    }
+    .grid-container {
+        display: grid; grid-template-columns: repeat(3, 1fr); grid-template-rows: repeat(6, 70px);
+        gap: 10px; position: relative;
+    }
+    .svg-lines { position: absolute; top: 0; left: 0; width: 100%; height: 100%; z-index: 1; pointer-events: none; }
+    .skill-node {
+        position: relative; z-index: 2; background-color: #1e1e1e; border: 2px solid #333;
+        border-radius: 6px; display: flex; flex-direction: column; align-items: center; justify-content: center;
+        cursor: pointer; transition: all 0.2s ease; padding: 4px; text-align: center; height: 55px;
+    }
+    .skill-node:active { transform: scale(0.96); }
+    .skill-name { font-size: 0.75rem; font-weight: bold; line-height: 1.2; margin-bottom: 4px; pointer-events: none; color: #aaa;}
+    .skill-level { font-size: 0.85rem; background: #000; padding: 1px 6px; border-radius: 3px; pointer-events: none; border: 1px solid #333;}
+    
+    .locked { filter: brightness(0.4); border-color: #222; cursor: not-allowed; opacity: 0.7; }
+    .unlocked { border-color: #6a5a3a; .skill-name { color: #ddd; } }
+    .active { border-color: #a38c5b; background-color: #2b2315; .skill-name { color: #fff; } .skill-level { border-color: #a38c5b; color: #fff; } }
+    .maxed { border-color: #ffd700; background-color: #3d2f13; .skill-name { color: #ffd700; } .skill-level { border-color: #ffd700; color: #ffd700; } }
+    
+    .instructions { margin-top: 25px; font-size: 0.9rem; color: #888; text-align: center; line-height: 1.6; border-top: 1px solid #333; padding-top: 15px;}
+</style>
+</head>
+<body>
+
+<h1>D2R官方術士技能模擬器</h1>
+<div class="subheader">全技能名稱與連線路徑已 100% 對齊遊戲實機</div>
+<div class="status-bar">剩餘點數: <span id="points-left">110</span></div>
+
+<div class="trees-wrapper" id="trees-wrapper">
+    </div>
+
+<div class="instructions">
+    <b>左鍵點擊</b>：+1 點 | <b>右鍵點擊</b>：-1 點<br>
+    <i>系統會自動處理前置技能鎖定與連鎖退點機制</i>
+</div>
+
+<script>
+    let pointsLeft = 110;
+
+    const skillsData = {
+        // === 混沌 (Chaos) ===
+        'c_r1_c3': { tree: 'chaos', row: 1, col: 3, name: '瘴氣彈', req: [] },
+        
+        'c_r2_c1': { tree: 'chaos', row: 2, col: 1, name: '火焰之環', req: [] },
+        'c_r2_c2': { tree: 'chaos', row: 2, col: 2, name: '咒印:昏沉', req: [] },
+        
+        'c_r3_c2': { tree: 'chaos', row: 3, col: 2, name: '咒印:冤仇', req: ['c_r2_c2'] },
+        'c_r3_c3': { tree: 'chaos', row: 3, col: 3, name: '瘴氣鎖鏈', req: ['c_r1_c3'] }, 
+        
+        'c_r4_c1': { tree: 'chaos', row: 4, col: 1, name: '烈焰湧浪', req: ['c_r2_c1'] },
+        
+        'c_r5_c2': { tree: 'chaos', row: 5, col: 2, name: '咒印:死亡', req: ['c_r3_c2'] },
+        'c_r5_c3': { tree: 'chaos', row: 5, col: 3, name: '增強混亂', req: ['c_r3_c3'] }, 
+        
+        'c_r6_c1': { tree: 'chaos', row: 6, col: 1, name: '天起末日', req: ['c_r4_c1', 'c_r5_c2'] },
+        'c_r6_c3': { tree: 'chaos', row: 6, col: 3, name: '深淵裂口', req: ['c_r5_c3'] }, 
+
+        // === 邪界 (Eldritch) ===
+        'e1': { tree: 'eldritch', row: 1, col: 1, name: '懸浮精通', req: [] },
+        'e2': { tree: 'eldritch', row: 1, col: 3, name: '邪咒:災禍', req: [] },
+        'e3': { tree: 'eldritch', row: 2, col: 2, name: '斬劈', req: ['e1'] },
+        'e4': { tree: 'eldritch', row: 3, col: 1, name: '回響打擊', req: ['e1'] },
+        'e5': { tree: 'eldritch', row: 3, col: 3, name: '邪咒:消滅', req: ['e2'] },
+        'e6': { tree: 'eldritch', row: 4, col: 1, name: '飛刃躍傳', req: ['e4'] },
+        'e7': { tree: 'eldritch', row: 4, col: 2, name: '靈能護盾', req: ['e3'] },
+        'e8': { tree: 'eldritch', row: 5, col: 2, name: '邪異轟擊', req: ['e7'] },
+        'e9': { tree: 'eldritch', row: 5, col: 3, name: '邪咒:虹吸', req: ['e5'] },
+        'e10': { tree: 'eldritch', row: 6, col: 2, name: '鏡像之刃', req: ['e6', 'e8'] },
+
+        // === 惡魔 (Demon) ===
+        'd2': { tree: 'demon', row: 1, col: 3, name: '惡魔專精', req: [] },
+        'd1': { tree: 'demon', row: 1, col: 1, name: '召喚羊頭人', req: ['d2'] },
+        'd3': { tree: 'demon', row: 2, col: 1, name: '血誓', req: ['d1'] },
+        'd4': { tree: 'demon', row: 2, col: 2, name: '死亡印記', req: ['d2'] },
+        'd5': { tree: 'demon', row: 3, col: 3, name: '召喚魔汙怪', req: ['d2'] },
+        'd6': { tree: 'demon', row: 4, col: 2, name: '沸血術', req: ['d4'] },
+        'd7': { tree: 'demon', row: 4, col: 3, name: '召喚褻瀆者', req: ['d5'] },
+        'd8': { tree: 'demon', row: 5, col: 2, name: '吞食', req: ['d6'] },
+        // 修正重點：吞噬 (d9) 的前置從 吞食(d8) 改為 血誓(d3)
+        'd9': { tree: 'demon', row: 6, col: 1, name: '吞噬', req: ['d3'] },
+        'd10': { tree: 'demon', row: 6, col: 3, name: '束縛惡魔', req: ['d7', 'd8'] }
+    };
+
+    const treesInfo = [
+        { id: 'chaos', name: '混沌 (Chaos)' },
+        { id: 'eldritch', name: '邪界 (Eldritch)' },
+        { id: 'demon', name: '惡魔 (Demon)' }
+    ];
+
+    for (let key in skillsData) {
+        skillsData[key].level = 0;
+        skillsData[key].max = 20;
+    }
+
+    const wrapper = document.getElementById('trees-wrapper');
+    const pointsDisplay = document.getElementById('points-left');
+
+    treesInfo.forEach(tree => {
+        const panel = document.createElement('div');
+        panel.className = 'tree-panel';
+        panel.innerHTML = `
+            <h2 class="tree-title">${tree.name}</h2>
+            <div class="grid-container" id="grid-${tree.id}">
+                <svg class="svg-lines" id="svg-${tree.id}">
+                    <defs>
+                        <marker id="arrow-dark" markerWidth="5" markerHeight="5" refX="5" refY="2.5" orient="auto">
+                            <path d="M0,0 L0,5 L5,2.5 z" fill="#333" />
+                        </marker>
+                        <marker id="arrow-bright" markerWidth="5" markerHeight="5" refX="5" refY="2.5" orient="auto">
+                            <path d="M0,0 L0,5 L5,2.5 z" fill="#a38c5b" />
+                        </marker>
+                    </defs>
+                </svg>
+            </div>
+        `;
+        wrapper.appendChild(panel);
+    });
+
+    for (let id in skillsData) {
+        const skill = skillsData[id];
+        const grid = document.getElementById(`grid-${skill.tree}`);
+        
+        const node = document.createElement('div');
+        node.className = 'skill-node locked';
+        node.id = `node-${id}`;
+        node.style.gridColumn = skill.col;
+        node.style.gridRow = skill.row;
+        
+        node.innerHTML = `
+            <div class="skill-name">${skill.name}</div>
+            <div class="skill-level" id="lvl-${id}">0/20</div>
+        `;
+
+        node.addEventListener('click', () => {
+            if (isUnlocked(id) && skill.level < skill.max && pointsLeft > 0) {
+                skill.level++;
+                pointsLeft--;
+                updateAll();
+            }
+        });
+
+        node.addEventListener('contextmenu', (e) => {
+            e.preventDefault();
+            if (skill.level > 0) {
+                skill.level--;
+                pointsLeft++;
+                if (skill.level === 0) cascadeRefund(id);
+                updateAll();
+            }
+        });
+
+        grid.appendChild(node);
+    }
+
+    function isUnlocked(id) {
+        const reqs = skillsData[id].req;
+        if (reqs.length === 0) return true;
+        return reqs.every(reqId => skillsData[reqId].level > 0);
+    }
+
+    function cascadeRefund(parentId) {
+        for (let childId in skillsData) {
+            const child = skillsData[childId];
+            if (child.req.includes(parentId) && child.level > 0) {
+                pointsLeft += child.level;
+                child.level = 0;
+                cascadeRefund(childId);
+            }
+        }
+    }
+
+    function updateAll() {
+        pointsDisplay.textContent = pointsLeft;
+
+        for (let id in skillsData) {
+            const skill = skillsData[id];
+            const node = document.getElementById(`node-${id}`);
+            const lvlText = document.getElementById(`lvl-${id}`);
+            
+            lvlText.textContent = `${skill.level}/${skill.max}`;
+            node.classList.remove('locked', 'unlocked', 'active', 'maxed');
+            
+            if (skill.level === skill.max) node.classList.add('maxed');
+            else if (skill.level > 0) node.classList.add('active');
+            else if (isUnlocked(id)) node.classList.add('unlocked');
+            else node.classList.add('locked');
+        }
+        drawAllLines();
+    }
+
+    function drawAllLines() {
+        treesInfo.forEach(tree => {
+            const svg = document.getElementById(`svg-${tree.id}`);
+            svg.innerHTML = svg.querySelector('defs').outerHTML; 
+
+            for (let id in skillsData) {
+                const skill = skillsData[id];
+                if (skill.tree !== tree.id) continue;
+
+                skill.req.forEach(reqId => {
+                    const targetNode = document.getElementById(`node-${id}`);
+                    const sourceNode = document.getElementById(`node-${reqId}`);
+                    
+                    if (targetNode && sourceNode) {
+                        const sRect = sourceNode.offsetTop + (sourceNode.offsetHeight / 2);
+                        const sLeft = sourceNode.offsetLeft + (sourceNode.offsetWidth / 2);
+                        const tRect = targetNode.offsetTop + (targetNode.offsetHeight / 2);
+                        const tLeft = targetNode.offsetLeft + (targetNode.offsetWidth / 2);
+
+                        const angle = Math.atan2(tRect - sRect, tLeft - sLeft);
+                        const offsetStart = 28; 
+                        const offsetEnd = 32;
+                        
+                        const x1 = sLeft + Math.cos(angle) * offsetStart;
+                        const y1 = sRect + Math.sin(angle) * offsetStart;
+                        const x2 = tLeft - Math.cos(angle) * offsetEnd;
+                        const y2 = tRect - Math.sin(angle) * offsetEnd;
+
+                        const isLineActive = skillsData[reqId].level > 0;
+                        const color = isLineActive ? '#a38c5b' : '#333';
+                        const marker = isLineActive ? 'url(#arrow-bright)' : 'url(#arrow-dark)';
+                        const width = isLineActive ? '2' : '1.5';
+
+                        const line = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+                        line.setAttribute('x1', x1); line.setAttribute('y1', y1);
+                        line.setAttribute('x2', x2); line.setAttribute('y2', y2);
+                        line.setAttribute('stroke', color);
+                        line.setAttribute('stroke-width', width);
+                        line.setAttribute('marker-end', marker);
+                        svg.appendChild(line);
+                    }
+                });
+            }
+        });
+    }
+
+    window.onload = () => {
+        updateAll();
+        setTimeout(drawAllLines, 100); 
+    };
+    window.onresize = drawAllLines;
+</script>
+</body>
+</html>
