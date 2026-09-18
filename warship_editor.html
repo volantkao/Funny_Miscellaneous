@@ -1,0 +1,414 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>飛船六邊形裝備網格編輯器</title>
+  <style>
+    * {
+      box-sizing: border-box;
+      margin: 0;
+      padding: 0;
+      font-family: "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+    }
+
+    body {
+      background-color: #0b0f19;
+      color: #e0e6ed;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      min-height: 100vh;
+      padding: 20px;
+    }
+
+    h1 {
+      margin-bottom: 20px;
+      color: #4da6ff;
+      text-shadow: 0 0 10px rgba(77, 166, 255, 0.5);
+      font-size: 1.8rem;
+    }
+
+    .controls {
+      background: #161f30;
+      padding: 15px 25px;
+      border-radius: 12px;
+      border: 1px solid #2a3b5c;
+      box-shadow: 0 8px 24px rgba(0, 0, 0, 0.5);
+      display: flex;
+      flex-wrap: wrap;
+      gap: 15px;
+      align-items: center;
+      justify-content: center;
+      margin-bottom: 20px;
+      max-width: 900px;
+      width: 100%;
+    }
+
+    .control-group {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+    }
+
+    label {
+      font-size: 0.9rem;
+      color: #a0aec0;
+    }
+
+    select, button, input[type="color"] {
+      background: #0d1527;
+      color: #38bdf8;
+      border: 1px solid #38bdf8;
+      padding: 8px 14px;
+      border-radius: 6px;
+      cursor: pointer;
+      font-weight: bold;
+      transition: all 0.2s ease;
+    }
+
+    select:hover, button:hover {
+      background: #1e293b;
+      box-shadow: 0 0 8px rgba(56, 189, 248, 0.4);
+    }
+
+    button:disabled {
+      border-color: #475569;
+      color: #475569;
+      cursor: not-allowed;
+      box-shadow: none;
+      background: #0f172a;
+    }
+
+    .btn-danger {
+      border-color: #ef4444;
+      color: #f87171;
+    }
+    .btn-danger:hover {
+      background: #450a0a;
+      box-shadow: 0 0 8px rgba(239, 68, 68, 0.4);
+    }
+
+    .color-picker-wrapper {
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+
+    input[type="color"] {
+      padding: 2px;
+      width: 36px;
+      height: 36px;
+    }
+
+    .preset-colors {
+      display: flex;
+      gap: 5px;
+    }
+
+    .color-btn {
+      width: 24px;
+      height: 24px;
+      border-radius: 50%;
+      border: 2px solid transparent;
+      cursor: pointer;
+      padding: 0;
+    }
+
+    .color-btn.active {
+      border-color: #ffffff;
+      transform: scale(1.15);
+      box-shadow: 0 0 6px rgba(255, 255, 255, 0.8);
+    }
+
+    .canvas-container {
+      position: relative;
+      background: #080d1a;
+      border: 1px solid #1e293b;
+      border-radius: 12px;
+      box-shadow: inset 0 0 30px rgba(0, 0, 0, 0.8);
+      overflow: hidden;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      padding: 20px;
+    }
+
+    /* SVG 樣式 */
+    svg {
+      user-select: none;
+    }
+
+    .hex-cell {
+      cursor: pointer;
+      transition: all 0.15s ease;
+      stroke: #2a3b5c;
+      stroke-width: 1.5;
+    }
+
+    .hex-cell:hover {
+      stroke: #38bdf8;
+      stroke-width: 3;
+      filter: drop-shadow(0px 0px 6px rgba(56, 189, 248, 0.8));
+    }
+
+    .hex-text {
+      font-size: 9px;
+      fill: #ffffff;
+      text-anchor: middle;
+      dominant-baseline: central;
+      pointer-events: none;
+      font-weight: 600;
+      text-shadow: 0px 0px 3px #000;
+    }
+
+    .status-bar {
+      margin-top: 15px;
+      font-size: 0.9rem;
+      color: #64748b;
+    }
+  </style>
+</head>
+<body>
+
+  <h1>星艦配置圖六邊形陣列模擬器</h1>
+
+  <div class="controls">
+    <!-- 艦艇佈局選擇 -->
+    <div class="control-group">
+      <label for="shipSelect">艦艇模型：</label>
+      <select id="shipSelect">
+        <option value="fortress">航空母艦 - 堡壘級 (圖一)</option>
+        <option value="tianxuan">航空母艦 - 天玄級 (圖二)</option>
+        <option value="xuanyuan">巡洋艦 - 軒轅級 (圖三)</option>
+      </select>
+    </div>
+
+    <!-- 顏色選擇器 -->
+    <div class="control-group">
+      <label>當前筆刷：</label>
+      <div class="preset-colors">
+        <button class="color-btn active" style="background-color: #2563eb;" data-color="#2563eb" title="藍色"></button>
+        <button class="color-btn" style="background-color: #d97706;" data-color="#d97706" title="橘色"></button>
+        <button class="color-btn" style="background-color: #dc2626;" data-color="#dc2626" title="紅色"></button>
+        <button class="color-btn" style="background-color: #16a34a;" data-color="#16a34a" title="綠色"></button>
+        <button class="color-btn" style="background-color: #9333ea;" data-color="#9333ea" title="紫色"></button>
+        <button class="color-btn" style="background-color: #475569;" data-color="#475569" title="灰色"></button>
+        <button class="color-btn" style="background-color: transparent; border: 1px dashed #94a3b8;" data-color="transparent" title="擦除/變回空白"></button>
+      </div>
+      <input type="color" id="customColor" value="#2563eb">
+    </div>
+
+    <!-- 操作按鈕 -->
+    <div class="control-group">
+      <button id="undoBtn" disabled>↩ 復原 (Undo)</button>
+      <button id="clearBtn" class="btn-danger">🗑️ 全部清空</button>
+    </div>
+  </div>
+
+  <div class="canvas-container">
+    <svg id="hexSvg" width="800" height="420" viewBox="0 0 800 420"></svg>
+  </div>
+
+  <div class="status-bar" id="statusBar">
+    點擊六邊形格子即可上色，選取透明色或雙擊可擦除。
+  </div>
+
+  <script>
+    // --- 佈局座標數據 (對照三張圖片的相對布局) ---
+    const R = 28; // 六邊形外接圓半徑
+    const W = Math.sqrt(3) * R; // 寬度 ~48.5
+    const H = 2 * R; // 高度 56
+    const X_SPACING = W; // 平頂六邊形水平間距
+    const Y_SPACING = R * 1.5; // 垂直間距
+
+    // 原點 offset (畫面中心點附近)
+    const CENTER_X = 400;
+    const CENTER_Y = 200;
+
+    // 將 Axial 座標 (q, r) 轉換成 SVG Pixel (x, y)
+    function hexToPixel(q, r) {
+      const x = CENTER_X + R * (Math.sqrt(3) * q + Math.sqrt(3)/2 * r);
+      const y = CENTER_Y + R * (3/2 * r);
+      return { x, y };
+    }
+
+    // 三張圖對應的 (q, r) 座標配置表與預設標籤
+    const layouts = {
+      // 圖一：堡壘級
+      fortress: [
+        {q:-4, r:0, label:'6階30級'}, {q:-3, r:0, label:'7階30級'}, {q:-2, r:0, label:'1階10級'}, {q:-1, r:0, label:'4階5級'}, {q:0, r:0, label:''}, {q:1, r:0, label:'7階4級'}, {q:2, r:0, label:'4階5級'},
+        {q:-4, r:1, label:'8階45級'}, {q:-3, r:1, label:'7階30級'}, {q:-1, r:1, label:'2階5級'}, {q:0, r:1, label:''}, {q:1, r:1, label:'7階29級'}, {q:2, r:1, label:'4階5級'},
+        {q:-2, r:2, label:'2階10級'}, {q:0, r:2, label:'5階20級'}, {q:1, r:2, label:'8階20級'}, {q:2, r:2, label:'4階5級'},
+        {q:1, r:3, label:'4階20級'}, {q:2, r:3, label:'4階25級'}, {q:3, r:3, label:'5階10級'},
+        {q:-2, r:-1, label:'1階5級'}, {q:-1, r:-1, label:''}, {q:0, r:-1, label:'7階15級'}, {q:1, r:-1, label:'4階5級'},
+        {q:-3, r:-2, label:'5階'}, {q:-1, r:-2, label:'6階15級'}, {q:0, r:-2, label:'4階25級'}, {q:1, r:-2, label:'5階10級'},
+        {q:-1, r:-3, label:'4階20級'}
+      ],
+
+      // 圖二：天玄級
+      tianxuan: [
+        {q:-3, r:-1, label:'7階40級'}, {q:-2, r:-1, label:''}, {q:1, r:-1, label:''},
+        {q:-4, r:0, label:'8階25級'}, {q:-3, r:0, label:'7階35級'}, {q:-1, r:0, label:''}, {q:0, r:0, label:''}, {q:1, r:0, label:''}, {q:2, r:0, label:'1階5級'},
+        {q:-5, r:1, label:'8階35級'}, {q:-4, r:1, label:'7階30級'}, {q:-3, r:1, label:'8階20級'}, {q:0, r:1, label:'6階15級'}, {q:1, r:1, label:'1階10級'}, {q:2, r:1, label:'7階20級'},
+        {q:-4, r:2, label:'8階45級'}, {q:-3, r:2, label:'8階30級'}, {q:-2, r:2, label:'7階25級'}, {q:1, r:2, label:'2階10級'}, {q:2, r:2, label:'2階5級'},
+        {q:-2, r:-2, label:'8階10級'}, {q:-1, r:-2, label:'5階5級'}, {q:0, r:-2, label:'4階5級'}, {q:1, r:-2, label:'3階5級'}, {q:2, r:-2, label:'4階10級'},
+        {q:-2, r:-3, label:'5階20級'}, {q:-1, r:-3, label:'4階25級'}, {q:0, r:-3, label:'3階15級'}, {q:1, r:-3, label:'4階15級'},
+        {q:-2, r:-4, label:'6階20級'}, {q:0, r:-4, label:'4階5級'}
+      ],
+
+      // 圖三：軒轅級
+      xuanyuan: [
+        {q:-4, r:1, label:'3階15級'}, {q:-3, r:1, label:'2階10級'}, {q:-2, r:1, label:'1階5級'}, {q:-1, r:1, label:'4階5級'}, {q:2, r:1, label:'6階20級'},
+        {q:-3, r:2, label:'3階5級'}, {q:-2, r:2, label:'1階10級'}, {q:1, r:2, label:'4階25級'}, {q:2, r:2, label:'5階10級'},
+        {q:-2, r:0, label:''}, {q:-1, r:0, label:''}, {q:0, r:0, label:''}, {q:1, r:0, label:'6階15級'}, {q:2, r:0, label:'7階10級'},
+        {q:-2, r:-1, label:'2階5級'}, {q:-1, r:-1, label:'5階'}, {q:0, r:-1, label:''}, {q:1, r:-1, label:''}, {q:2, r:-1, label:'6階5級'}, {q:3, r:-1, label:'5階20級'},
+        {q:0, r:-2, label:'4階15級'}, {q:1, r:-2, label:'5階5級'}, {q:2, r:-2, label:'5階15級'}
+      ]
+    };
+
+    // --- 全局狀態 ---
+    let currentShip = 'fortress';
+    let currentColor = '#2563eb';
+    let cellStates = {}; // 儲存 { key: color }
+    let undoStack = [];  // Undo 歷史紀錄
+
+    // --- DOM 元素 ---
+    const svg = document.getElementById('hexSvg');
+    const shipSelect = document.getElementById('shipSelect');
+    const customColorInput = document.getElementById('customColor');
+    const colorBtns = document.querySelectorAll('.color-btn');
+    const undoBtn = document.getElementById('undoBtn');
+    const clearBtn = document.getElementById('clearBtn');
+    const statusBar = document.getElementById('statusBar');
+
+    // 生成正六邊形 Points 路徑
+    function getHexPoints(cx, cy, r) {
+      let points = [];
+      for (let i = 0; i < 6; i++) {
+        // 尖頂朝上 (Pointy-topped)
+        let angle_deg = 60 * i - 30;
+        let angle_rad = Math.PI / 180 * angle_deg;
+        points.push(`${cx + r * Math.cos(angle_rad)},${cy + r * Math.sin(angle_rad)}`);
+      }
+      return points.join(' ');
+    }
+
+    // 紀錄當前狀態至 Undo 堆疊
+    function saveState() {
+      undoStack.push(JSON.stringify(cellStates));
+      undoBtn.disabled = false;
+    }
+
+    // 繪製網格
+    function renderGrid() {
+      svg.innerHTML = '';
+      const list = layouts[currentShip] || [];
+
+      list.forEach((cell, idx) => {
+        const key = `${cell.q},${cell.r}`;
+        const { x, y } = hexToPixel(cell.q, cell.r);
+        const color = cellStates[key] || 'rgba(22, 31, 48, 0.7)';
+
+        // 創建 G 群組
+        const g = document.createElementNS('http://www.w3.org/2000/svg', 'g');
+
+        // 創建 Polygon
+        const polygon = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
+        polygon.setAttribute('points', getHexPoints(x, y, R - 1));
+        polygon.setAttribute('class', 'hex-cell');
+        polygon.setAttribute('fill', color);
+        polygon.dataset.key = key;
+
+        // 點擊事件：變更顏色
+        polygon.addEventListener('click', () => {
+          saveState();
+          if (currentColor === 'transparent') {
+            delete cellStates[key];
+          } else {
+            cellStates[key] = currentColor;
+          }
+          renderGrid();
+        });
+
+        // 雙擊事件：快速清除為空白
+        polygon.addEventListener('dblclick', (e) => {
+          e.preventDefault();
+          saveState();
+          delete cellStates[key];
+          renderGrid();
+        });
+
+        g.appendChild(polygon);
+
+        // 如果有文字標籤，繪製文字
+        if (cell.label) {
+          const text = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          text.setAttribute('x', x);
+          text.setAttribute('y', y);
+          text.setAttribute('class', 'hex-text');
+          text.textContent = cell.label;
+          g.appendChild(text);
+        }
+
+        svg.appendChild(g);
+      });
+    }
+
+    // --- 事件監聽器 ---
+
+    // 換船隻佈局
+    shipSelect.addEventListener('change', (e) => {
+      currentShip = e.target.value;
+      cellStates = {}; // 切換船隻時重置
+      undoStack = [];
+      undoBtn.disabled = true;
+      renderGrid();
+      statusBar.textContent = `已切換至：${shipSelect.options[shipSelect.selectedIndex].text}`;
+    });
+
+    // 預設顏色按鈕
+    colorBtns.forEach(btn => {
+      btn.addEventListener('click', () => {
+        colorBtns.forEach(b => b.classList.remove('active'));
+        btn.classList.add('active');
+        currentColor = btn.dataset.color;
+        if(currentColor !== 'transparent') {
+          customColorInput.value = currentColor;
+        }
+      });
+    });
+
+    // 自訂調色盤
+    customColorInput.addEventListener('input', (e) => {
+      currentColor = e.target.value;
+      colorBtns.forEach(b => b.classList.remove('active'));
+    });
+
+    // Undo 復原按鈕
+    undoBtn.addEventListener('click', () => {
+      if (undoStack.length > 0) {
+        const previousState = undoStack.pop();
+        cellStates = JSON.parse(previousState);
+        renderGrid();
+        if (undoStack.length === 0) {
+          undoBtn.disabled = true;
+        }
+        statusBar.textContent = '已復原上一次的操作。';
+      }
+    });
+
+    // 全部清空按鈕
+    clearBtn.addEventListener('click', () => {
+      if (Object.keys(cellStates).length === 0) return;
+      saveState();
+      cellStates = {};
+      renderGrid();
+      statusBar.textContent = '所有格子已清空。';
+    });
+
+    // 初始化繪製
+    renderGrid();
+  </script>
+</body>
+</html>
