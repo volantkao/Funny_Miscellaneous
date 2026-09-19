@@ -3,410 +3,480 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>星艦六邊形網格編輯器 (HexGridEditor)</title>
+  <title>星艦六邊形編輯器</title>
+  <script src="https://cdn.tailwindcss.com"></script>
   <style>
-    :root {
-      --bg-color: #0f172a;
-      --panel-bg: #1e293b;
-      --text-color: #f8fafc;
-      --border-color: #334155;
-      --hex-black: #000000;
-      --hex-gray: #64748b;
-      --hex-white: #ffffff;
-      --hex-stroke: #94a3b8;
-    }
-
     * {
       box-sizing: border-box;
+      user-select: none;
+      -webkit-user-select: none;
+    }
+    
+    body, html {
       margin: 0;
       padding: 0;
-      font-family: 'Segoe UI', system-ui, sans-serif;
+      width: 100vw;
+      height: 100vh;
+      overflow: hidden;
+      background-color: #ffffff;
+      font-family: system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     }
 
-    body {
-      background-color: var(--bg-color);
-      color: var(--text-color);
-      display: flex;
-      flex-direction: column;
-      align-items: center;
-      min-height: 100vh;
-      padding: 20px;
+    #hexCanvas {
+      display: block;
+      width: 100vw;
+      height: 100vh;
+      cursor: crosshair;
+      touch-action: none;
     }
 
-    h1 {
-      margin-bottom: 20px;
-      font-size: 1.8rem;
-      text-shadow: 0 2px 4px rgba(0,0,0,0.5);
+    .glass-panel {
+      background: rgba(255, 255, 255, 0.92);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+      border: 1px solid rgba(0, 0, 0, 0.12);
+      box-shadow: 0 10px 30px rgba(0, 0, 0, 0.15);
     }
 
-    .toolbar {
-      background: var(--panel-bg);
-      border: 1px solid var(--border-color);
-      padding: 20px;
-      border-radius: 12px;
-      box-shadow: 0 4px 15px rgba(0,0,0,0.3);
-      display: flex;
-      flex-wrap: wrap;
-      gap: 20px;
-      justify-content: center;
-      align-items: center;
-      max-width: 900px;
-      width: 100%;
-      margin-bottom: 20px;
-    }
-
-    .control-group {
-      display: flex;
-      align-items: center;
-      gap: 10px;
-    }
-
-    label {
-      font-size: 0.9rem;
-      font-weight: 600;
-      color: #cbd5e1;
-    }
-
-    select, button, input[type="color"] {
-      background: #0f172a;
-      color: #e2e8f0;
-      border: 1px solid #475569;
-      padding: 8px 12px;
-      border-radius: 6px;
-      cursor: pointer;
-      font-weight: 600;
-      transition: all 0.2s;
-    }
-
-    select:hover, button:hover:not(:disabled) {
-      border-color: #94a3b8;
-      background: #334155;
-    }
-
-    button:disabled {
-      opacity: 0.5;
-      cursor: not-allowed;
-    }
-
-    .palette {
-      display: flex;
-      gap: 6px;
-      align-items: center;
-      background: #0f172a;
-      padding: 6px;
-      border-radius: 8px;
-      border: 1px solid #475569;
-    }
-
-    .color-btn {
+    .color-swatch {
       width: 28px;
       height: 28px;
       border-radius: 50%;
-      border: 2px solid transparent;
       cursor: pointer;
-      padding: 0;
-      transition: transform 0.1s, border-color 0.1s;
-    }
-
-    .color-btn:hover {
-      transform: scale(1.1);
-    }
-
-    .color-btn.active {
-      border-color: #ffffff;
-      transform: scale(1.15);
-      box-shadow: 0 0 8px rgba(255,255,255,0.4);
-    }
-
-    .color-btn.eraser {
-      background: #e2e8f0;
+      transition: transform 0.15s ease, box-shadow 0.15s ease;
+      border: 2px solid rgba(0, 0, 0, 0.15);
       position: relative;
-      overflow: hidden;
     }
-    
-    .color-btn.eraser::after {
+
+    .color-swatch:hover {
+      transform: scale(1.15);
+    }
+
+    .color-swatch.active {
+      transform: scale(1.2);
+      border-color: #000000;
+      box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.5);
+    }
+
+    .eraser-icon::after {
       content: '';
       position: absolute;
       top: 50%;
-      left: 0;
-      width: 100%;
+      left: 15%;
+      width: 70%;
       height: 2px;
-      background: #ef4444;
+      background-color: #ef4444;
       transform: translateY(-50%) rotate(-45deg);
     }
 
-    input[type="color"] {
-      width: 32px;
-      height: 32px;
-      padding: 2px;
-      border-radius: 50%;
+    /* Custom scrollbar for color swatches on small screens */
+    .no-scrollbar::-webkit-scrollbar {
+      display: none;
     }
-
-    .canvas-container {
-      background: #020617;
-      border: 1px solid var(--border-color);
-      border-radius: 12px;
-      box-shadow: inset 0 0 20px rgba(0,0,0,0.8);
-      overflow: hidden;
-      display: flex;
-      justify-content: center;
-      align-items: center;
-      padding: 20px;
-    }
-
-    svg {
-      user-select: none;
-    }
-
-    polygon {
-      stroke: var(--hex-stroke);
-      stroke-width: 1.5;
-      transition: fill 0.15s, stroke-width 0.1s;
-    }
-
-    /* White cells (Modifiable) */
-    .hex-white {
-      fill: var(--hex-white);
-      cursor: pointer;
-    }
-    .hex-white:hover {
-      stroke: #3b82f6;
-      stroke-width: 3;
-    }
-
-    /* Black cells (Boundary) */
-    .hex-black {
-      fill: var(--hex-black);
-      stroke: #333;
-      cursor: not-allowed;
-    }
-
-    /* Gray cells (Fixed inside) */
-    .hex-gray {
-      fill: var(--hex-gray);
-      stroke: #475569;
-      cursor: not-allowed;
-    }
-
-    .legend {
-      margin-top: 15px;
-      display: flex;
-      gap: 20px;
-      font-size: 0.85rem;
-      color: #94a3b8;
-    }
-    .legend-item {
-      display: flex;
-      align-items: center;
-      gap: 6px;
-    }
-    .legend-box {
-      width: 12px;
-      height: 12px;
-      border-radius: 2px;
-      border: 1px solid #94a3b8;
+    .no-scrollbar {
+      -ms-overflow-style: none;
+      scrollbar-width: none;
     }
   </style>
 </head>
-<body>
+<body class="relative w-full h-full overflow-hidden bg-white">
 
-  <h1>星艦配置圖六邊形陣列編輯器</h1>
-
-  <div class="toolbar">
-    <div class="control-group">
-      <label for="shipSelect">佈局 (Layout)：</label>
-      <select id="shipSelect">
-        <option value="fortress">堡壘級 (Fortress)</option>
-        <option value="xuanyuan">軒轅級 (Xuanyuan)</option>
-        <option value="tianxuan">天玄級 (Tianxuan)</option>
-      </select>
-    </div>
-
-    <div class="control-group">
-      <label>筆刷 (Brush)：</label>
-      <div class="palette" id="colorPalette">
-        <!-- Preset Colors -->
-        <button class="color-btn active" style="background-color: #FF0000;" data-color="#FF0000" title="Red"></button>
-        <button class="color-btn" style="background-color: #FFA500;" data-color="#FFA500" title="Orange"></button>
-        <button class="color-btn" style="background-color: #FFFF00;" data-color="#FFFF00" title="Yellow"></button>
-        <button class="color-btn" style="background-color: #008000;" data-color="#008000" title="Green"></button>
-        <button class="color-btn" style="background-color: #0000FF;" data-color="#0000FF" title="Blue"></button>
-        <button class="color-btn" style="background-color: #4B0082;" data-color="#4B0082" title="Indigo"></button>
-        <button class="color-btn" style="background-color: #800080;" data-color="#800080" title="Purple"></button>
-        <!-- Eraser -->
-        <button class="color-btn eraser" data-color="eraser" title="Eraser (Clear to White)"></button>
+  <!-- Top Floating Controls -->
+  <div class="fixed top-3 left-1/2 -translate-x-1/2 z-50 w-[95%] max-w-5xl">
+    <div class="glass-panel px-4 py-2.5 rounded-2xl flex flex-wrap items-center justify-between gap-3 text-slate-800">
+      
+      <!-- App Title -->
+      <div class="flex items-center gap-2 font-bold text-base md:text-lg tracking-wide shrink-0">
+        <svg class="w-6 h-6 text-slate-900" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+          <path d="M12 2l8.66 5v10L12 22l-8.66-5V7L12 2z"/>
+        </svg>
+        <span>六邊形畫畫編輯器</span>
       </div>
-      <input type="color" id="customColor" value="#FF0000" title="Custom Color">
+
+      <!-- Color Palette Swatches -->
+      <div class="flex items-center gap-2 overflow-x-auto no-scrollbar py-1" id="paletteContainer">
+        <button class="color-swatch active" style="background-color: #ef4444;" data-color="#ef4444" title="紅色"></button>
+        <button class="color-swatch" style="background-color: #f97316;" data-color="#f97316" title="橙色"></button>
+        <button class="color-swatch" style="background-color: #eab308;" data-color="#eab308" title="黃色"></button>
+        <button class="color-swatch" style="background-color: #22c55e;" data-color="#22c55e" title="綠色"></button>
+        <button class="color-swatch" style="background-color: #3b82f6;" data-color="#3b82f6" title="藍色"></button>
+        <button class="color-swatch" style="background-color: #6366f1;" data-color="#6366f1" title="靛色"></button>
+        <button class="color-swatch" style="background-color: #a855f7;" data-color="#a855f7" title="紫色"></button>
+        <button class="color-swatch" style="background-color: #000000;" data-color="#000000" title="黑色"></button>
+        <button class="color-swatch" style="background-color: #808080;" data-color="#808080" title="灰色"></button>
+        <!-- Eraser -->
+        <button class="color-swatch eraser-icon" style="background-color: #ffffff;" data-color="#ffffff" title="橡皮擦 (恢復空白)"></button>
+        
+        <!-- Custom Color Picker -->
+        <label class="relative cursor-pointer shrink-0 ml-1" title="自訂顏色">
+          <input type="color" id="customColorPicker" value="#ef4444" class="opacity-0 absolute w-0 h-0">
+          <div class="w-7 h-7 rounded-full border-2 border-slate-300 flex items-center justify-center bg-gradient-to-tr from-pink-500 via-red-500 to-yellow-400 shadow-sm hover:scale-105 transition-transform">
+            <span class="text-[10px] font-black text-white">+</span>
+          </div>
+        </label>
+      </div>
+
+      <!-- Action Buttons -->
+      <div class="flex items-center gap-1.5 shrink-0">
+        <!-- Size Slider -->
+        <div class="hidden sm:flex items-center gap-1.5 mr-2 px-2 py-1 bg-slate-100 rounded-lg text-xs font-medium text-slate-600">
+          <span>大小</span>
+          <input type="range" id="sizeSlider" min="14" max="40" value="22" class="w-16 accent-slate-800 cursor-pointer">
+        </div>
+
+        <button id="undoBtn" disabled class="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 disabled:opacity-40 disabled:hover:bg-slate-100 text-xs font-semibold flex items-center gap-1 transition-colors">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M3 10h10a8 8 0 018 8v2M3 10l6-6M3 10l6 6"/></svg>
+          <span class="hidden md:inline">復原</span>
+        </button>
+
+        <button id="redoBtn" disabled class="px-2.5 py-1.5 rounded-lg bg-slate-100 hover:bg-slate-200 disabled:opacity-40 disabled:hover:bg-slate-100 text-xs font-semibold flex items-center gap-1 transition-colors">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M21 10H11a8 8 0 00-8 8v2M21 10l-6-6m6 6l-6 6"/></svg>
+          <span class="hidden md:inline">重來</span>
+        </button>
+
+        <button id="clearBtn" class="px-2.5 py-1.5 rounded-lg bg-red-50 hover:bg-red-100 text-red-600 text-xs font-semibold flex items-center gap-1 transition-colors">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M19 7l-.867 12.142A2 2 0 0116.138 21H7.862a2 2 0 01-1.995-1.858L5 7m5 4v6m4-6v6m1-10V4a1 1 0 00-1-1h-4a1 1 0 00-1 1v3M4 7h16"/></svg>
+          <span>清空</span>
+        </button>
+
+        <button id="exportBtn" class="px-3 py-1.5 rounded-lg bg-slate-900 hover:bg-slate-800 text-white text-xs font-semibold flex items-center gap-1 shadow-sm transition-colors ml-1">
+          <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" stroke-width="2" viewBox="0 0 24 24"><path d="M4 16v1a3 3 0 003 3h10a3 3 0 003-3v-1m-4-4l-4 4m0 0l-4-4m4 4V4"/></svg>
+          <span>匯出 PNG</span>
+        </button>
+      </div>
+
     </div>
-
-    <div class="control-group">
-      <button id="undoBtn" disabled title="Undo last action">↩ Undo</button>
-      <button id="clearBtn" title="Clear all painted cells">🗑️ Clear All</button>
-    </div>
   </div>
 
-  <div class="canvas-container">
-    <svg id="hexSvg" width="800" height="500" viewBox="-400 -250 800 500"></svg>
+  <!-- Toast Notification -->
+  <div id="toast" class="fixed bottom-5 left-1/2 -translate-x-1/2 z-50 bg-slate-900 text-white px-4 py-2 rounded-xl text-xs font-medium shadow-lg opacity-0 transition-opacity pointer-events-none duration-300">
+    提示訊息
   </div>
 
-  <div class="legend">
-    <div class="legend-item"><div class="legend-box" style="background: #000;"></div> 外框 (Black Boundary)</div>
-    <div class="legend-item"><div class="legend-box" style="background: #64748b;"></div> 障礙 (Gray Fixed)</div>
-    <div class="legend-item"><div class="legend-box" style="background: #fff;"></div> 可變動 (White Editable)</div>
-  </div>
+  <!-- Fullscreen Canvas -->
+  <canvas id="hexCanvas"></canvas>
 
   <script>
-    const R = 22; // Hexagon radius
-    const W = Math.sqrt(3) * R;
-    const H = 2 * R;
+    // --- Canvas & Rendering Setup ---
+    const canvas = document.getElementById('hexCanvas');
+    const ctx = canvas.getContext('2d');
 
-    // Full blank hexagonal grid: every cell is editable.
-    function generateBlankLayout() {
-      const cells = [];
-      // Large enough to fill the entire 800x500 editing area.
-      // Coordinates are axial; every generated cell starts as white/editable.
-      for (let q = -12; q <= 12; q++) {
-        for (let r = -9; r <= 9; r++) {
-          const { x, y } = hexToPixel(q, r);
-          // Keep cells whose centers are close enough to the visible canvas.
-          if (x >= -420 && x <= 420 && y >= -270 && y <= 270) {
-            cells.push({ q, r, type: 'white' });
-          }
-        }
-      }
-      return cells;
-    }
-
-    const layouts = {
-      fortress: generateBlankLayout(),
-      xuanyuan: generateBlankLayout(),
-      tianxuan: generateBlankLayout()
-    };
-
-    let currentShip = 'fortress';
-    let currentColor = '#FF0000'; // Default is Red
-    let coloredCells = {}; // { "q,r": "#color" }
-    let undoStack = [];
-
-    const svg = document.getElementById('hexSvg');
-    const undoBtn = document.getElementById('undoBtn');
+    // App State
+    let hexRadius = 22;             // Radius of hexagon from center to vertex
+    let currentColor = '#ef4444';    // Default selected color
+    let paintedGrid = {};           // Key: "r,c", Value: "#hexColor"
     
-    function saveState() {
-      // Push a deep copy of current painted cells
-      undoStack.push(JSON.parse(JSON.stringify(coloredCells)));
-      undoBtn.disabled = false;
+    // History Stacks for Undo / Redo
+    let undoStack = [];
+    let redoStack = [];
+    let currentStroke = null;       // Tracks modifications during a drag stroke
+
+    let isPointerDown = false;
+    let lastPointedKey = null;
+
+    // --- Toast Notification Helper ---
+    function showToast(msg) {
+      const toast = document.getElementById('toast');
+      toast.textContent = msg;
+      toast.style.opacity = '1';
+      setTimeout(() => {
+        toast.style.opacity = '0';
+      }, 1800);
     }
 
-    function hexToPixel(q, r) {
-      const x = W * (q + r / 2);
-      const y = (H * 3 / 4) * r;
+    // --- Geometry & Math Helpers ---
+    function getHexDimensions() {
+      const W = Math.sqrt(3) * hexRadius; // Width of pointy-topped hex
+      const H = 2 * hexRadius;            // Height of pointy-topped hex
+      return { W, H };
+    }
+
+    // Get center pixel position (x, y) for row r and col c
+    function getHexCenter(r, c) {
+      const { W } = getHexDimensions();
+      const xOffset = (Math.abs(r) % 2 === 1) ? W / 2 : 0;
+      const x = c * W + xOffset + W / 2;
+      const y = r * 1.5 * hexRadius + hexRadius;
       return { x, y };
     }
 
-    function getHexPoints(cx, cy, r) {
-      const points = [];
-      for (let i = 0; i < 6; i++) {
-        const angle_deg = 60 * i - 30; // Pointy topped
-        const angle_rad = Math.PI / 180 * angle_deg;
-        points.push(`${cx + r * Math.cos(angle_rad)},${cy + r * Math.sin(angle_rad)}`);
-      }
-      return points.join(' ');
-    }
+    // Determine grid cell (r, c) from screen pixel (px, py)
+    function getCellFromPixel(px, py) {
+      const { W } = getHexDimensions();
+      const approxRow = Math.round((py - hexRadius) / (1.5 * hexRadius));
+      
+      let bestCell = null;
+      let minSqDist = Infinity;
 
-    function renderGrid() {
-      svg.innerHTML = ''; // Clear SVG
-      const grid = layouts[currentShip];
+      for (let r = approxRow - 2; r <= approxRow + 2; r++) {
+        const xOffset = (Math.abs(r) % 2 === 1) ? W / 2 : 0;
+        const approxCol = Math.round((px - W / 2 - xOffset) / W);
 
-      grid.forEach(cell => {
-        const key = `${cell.q},${cell.r}`;
-        const { x, y } = hexToPixel(cell.q, cell.r);
-        
-        const poly = document.createElementNS('http://www.w3.org/2000/svg', 'polygon');
-        poly.setAttribute('points', getHexPoints(x, y, R - 1));
-        
-        // Apply classes based on cell type
-        if (cell.type === 'black') {
-          poly.setAttribute('class', 'hex-black');
-        } else if (cell.type === 'gray') {
-          poly.setAttribute('class', 'hex-gray');
-        } else if (cell.type === 'white') {
-          poly.setAttribute('class', 'hex-white');
-          
-          // Apply color if it was painted
-          if (coloredCells[key]) {
-            poly.style.fill = coloredCells[key];
-          } else {
-            poly.style.fill = ''; // Reset to CSS default
+        for (let c = approxCol - 2; c <= approxCol + 2; c++) {
+          const center = getHexCenter(r, c);
+          const dx = px - center.x;
+          const dy = py - center.y;
+          const sqDist = dx * dx + dy * dy;
+
+          if (sqDist < minSqDist) {
+            minSqDist = sqDist;
+            bestCell = { r, c, cx: center.x, cy: center.y };
           }
-
-          // Interactivity for editable cells
-          poly.addEventListener('click', () => {
-            saveState();
-            if (currentColor === 'eraser') {
-              delete coloredCells[key];
-            } else {
-              coloredCells[key] = currentColor;
-            }
-            renderGrid();
-          });
         }
-        svg.appendChild(poly);
-      });
+      }
+
+      if (bestCell && isPointInPointyHex(px - bestCell.cx, py - bestCell.cy, hexRadius)) {
+        return { r: bestCell.r, c: bestCell.c };
+      }
+      return null;
     }
 
-    // Layout selection
-    document.getElementById('shipSelect').addEventListener('change', (e) => {
-      currentShip = e.target.value;
-      coloredCells = {}; // Clear colors on layout change
-      undoStack = [];    // Clear history
-      undoBtn.disabled = true;
-      renderGrid();
-    });
-
-    // Color palette selection
-    const colorBtns = document.querySelectorAll('.color-btn');
-    const customColorInput = document.getElementById('customColor');
-
-    function setActiveBrush(btn, colorVal) {
-      colorBtns.forEach(b => b.classList.remove('active'));
-      if (btn) btn.classList.add('active');
-      currentColor = colorVal;
+    // Precise point inside pointy-topped regular hexagon check
+    function isPointInPointyHex(dx, dy, r) {
+      const W = Math.sqrt(3) * r;
+      const absX = Math.abs(dx);
+      const absY = Math.abs(dy);
+      
+      if (absX > W / 2 || absY > r) return false;
+      return (absX + Math.sqrt(3) * absY) <= Math.sqrt(3) * r;
     }
 
-    colorBtns.forEach(btn => {
-      btn.addEventListener('click', () => {
-        const color = btn.getAttribute('data-color');
-        setActiveBrush(btn, color);
-        if (color !== 'eraser') {
-          customColorInput.value = color;
+    // --- Canvas Resize & Crisp Rendering ---
+    function resizeCanvas() {
+      const dpr = window.devicePixelRatio || 1;
+      canvas.width = window.innerWidth * dpr;
+      canvas.height = window.innerHeight * dpr;
+      ctx.resetTransform();
+      ctx.scale(dpr, dpr);
+      drawGrid();
+    }
+
+    // Main Draw Function
+    function drawGrid() {
+      const width = window.innerWidth;
+      const height = window.innerHeight;
+      const { W } = getHexDimensions();
+
+      // Clear Canvas Background (Pure White)
+      ctx.fillStyle = '#ffffff';
+      ctx.fillRect(0, 0, width, height);
+
+      // Determine visible grid bounds with safety padding
+      const minRow = Math.floor(-hexRadius / (1.5 * hexRadius)) - 1;
+      const maxRow = Math.ceil((height + hexRadius) / (1.5 * hexRadius)) + 1;
+      const minCol = Math.floor(-W / W) - 2;
+      const maxCol = Math.ceil((width + W) / W) + 2;
+
+      ctx.lineWidth = 1.2;
+      ctx.strokeStyle = '#000000';
+
+      for (let r = minRow; r <= maxRow; r++) {
+        for (let c = minCol; c <= maxCol; c++) {
+          const { x, y } = getHexCenter(r, c);
+          const key = `${r},${c}`;
+          const cellColor = paintedGrid[key] || '#ffffff';
+
+          // Draw Hexagon Path
+          ctx.beginPath();
+          for (let i = 0; i < 6; i++) {
+            const angleDeg = 60 * i - 30; // Pointy topped
+            const angleRad = (Math.PI / 180) * angleDeg;
+            const vx = x + hexRadius * Math.cos(angleRad);
+            const vy = y + hexRadius * Math.sin(angleRad);
+            if (i === 0) ctx.moveTo(vx, vy);
+            else ctx.lineTo(vx, vy);
+          }
+          ctx.closePath();
+
+          // Fill color if painted
+          ctx.fillStyle = cellColor;
+          ctx.fill();
+
+          // Black Border
+          ctx.stroke();
         }
+      }
+    }
+
+    // --- History & State Stack Logic ---
+    function pushStrokeToHistory() {
+      if (currentStroke && Object.keys(currentStroke).length > 0) {
+        undoStack.push(currentStroke);
+        redoStack = []; // Clear redo stack on new action
+        updateToolbarButtons();
+      }
+      currentStroke = null;
+    }
+
+    function updateToolbarButtons() {
+      document.getElementById('undoBtn').disabled = undoStack.length === 0;
+      document.getElementById('redoBtn').disabled = redoStack.length === 0;
+    }
+
+    function applyColorToCell(r, c, color) {
+      const key = `${r},${c}`;
+      const previousColor = paintedGrid[key] || '#ffffff';
+
+      if (previousColor !== color) {
+        if (!currentStroke) currentStroke = {};
+        if (!(key in currentStroke)) {
+          currentStroke[key] = previousColor; // Record original color before this stroke
+        }
+
+        if (color === '#ffffff') {
+          delete paintedGrid[key];
+        } else {
+          paintedGrid[key] = color;
+        }
+        drawGrid();
+      }
+    }
+
+    function undo() {
+      if (undoStack.length === 0) return;
+      const strokeToUndo = undoStack.pop();
+      const redoStroke = {};
+
+      for (const [key, oldColor] of Object.entries(strokeToUndo)) {
+        redoStroke[key] = paintedGrid[key] || '#ffffff';
+        if (oldColor === '#ffffff') {
+          delete paintedGrid[key];
+        } else {
+          paintedGrid[key] = oldColor;
+        }
+      }
+
+      redoStack.push(redoStroke);
+      updateToolbarButtons();
+      drawGrid();
+      showToast('已復原');
+    }
+
+    function redo() {
+      if (redoStack.length === 0) return;
+      const strokeToRedo = redoStack.pop();
+      const undoStroke = {};
+
+      for (const [key, newColor] of Object.entries(strokeToRedo)) {
+        undoStroke[key] = paintedGrid[key] || '#ffffff';
+        if (newColor === '#ffffff') {
+          delete paintedGrid[key];
+        } else {
+          paintedGrid[key] = newColor;
+        }
+      }
+
+      undoStack.push(undoStroke);
+      updateToolbarButtons();
+      drawGrid();
+      showToast('已重來');
+    }
+
+    function clearAll() {
+      if (Object.keys(paintedGrid).length === 0) return;
+
+      const stroke = {};
+      for (const [key, color] of Object.entries(paintedGrid)) {
+        stroke[key] = color;
+      }
+      undoStack.push(stroke);
+      redoStack = [];
+      paintedGrid = {};
+      
+      updateToolbarButtons();
+      drawGrid();
+      showToast('已全部清空');
+    }
+
+    // --- Interactive Pointer Event Handlers ---
+    function handlePointerStart(e) {
+      isPointerDown = true;
+      currentStroke = {};
+      handlePointerMove(e);
+    }
+
+    function handlePointerMove(e) {
+      if (!isPointerDown) return;
+      const rect = canvas.getBoundingClientRect();
+      const px = e.clientX - rect.left;
+      const py = e.clientY - rect.top;
+
+      const cell = getCellFromPixel(px, py);
+      if (cell) {
+        const key = `${cell.r},${cell.c}`;
+        if (key !== lastPointedKey) {
+          lastPointedKey = key;
+          applyColorToCell(cell.r, cell.c, currentColor);
+        }
+      }
+    }
+
+    function handlePointerEnd() {
+      if (isPointerDown) {
+        isPointerDown = false;
+        lastPointedKey = null;
+        pushStrokeToHistory();
+      }
+    }
+
+    // Attach Pointer Listeners (Mouse & Touch compatible)
+    canvas.addEventListener('pointerdown', handlePointerStart);
+    canvas.addEventListener('pointermove', handlePointerMove);
+    canvas.addEventListener('pointerup', handlePointerEnd);
+    canvas.addEventListener('pointercancel', handlePointerEnd);
+
+    // --- Palette & UI Controls ---
+    const swatches = document.querySelectorAll('.color-swatch');
+    const customColorPicker = document.getElementById('customColorPicker');
+
+    swatches.forEach(swatch => {
+      swatch.addEventListener('click', () => {
+        swatches.forEach(s => s.classList.remove('active'));
+        swatch.classList.add('active');
+        currentColor = swatch.getAttribute('data-color');
       });
     });
 
-    customColorInput.addEventListener('input', (e) => {
-      setActiveBrush(null, e.target.value); // Custom color active, untoggle presets
+    customColorPicker.addEventListener('input', (e) => {
+      currentColor = e.target.value;
+      swatches.forEach(s => s.classList.remove('active'));
     });
 
-    // Undo action
-    undoBtn.addEventListener('click', () => {
-      if (undoStack.length > 0) {
-        coloredCells = undoStack.pop();
-        if (undoStack.length === 0) undoBtn.disabled = true;
-        renderGrid();
+    // Hexagon Size Slider
+    document.getElementById('sizeSlider').addEventListener('input', (e) => {
+      hexRadius = parseInt(e.target.value, 10);
+      drawGrid();
+    });
+
+    // Buttons
+    document.getElementById('undoBtn').addEventListener('click', undo);
+    document.getElementById('redoBtn').addEventListener('click', redo);
+    document.getElementById('clearBtn').addEventListener('click', clearAll);
+
+    // Export PNG
+    document.getElementById('exportBtn').addEventListener('click', () => {
+      const tempLink = document.createElement('a');
+      tempLink.download = `hex-art-${Date.now()}.png`;
+      tempLink.href = canvas.toDataURL('image/png');
+      tempLink.click();
+      showToast('已儲存 PNG 圖片');
+    });
+
+    // Keyboard Shortcuts (Ctrl+Z, Ctrl+Y)
+    window.addEventListener('keydown', (e) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'z') {
+        if (e.shiftKey) redo();
+        else undo();
+      } else if ((e.ctrlKey || e.metaKey) && e.key === 'y') {
+        redo();
       }
     });
 
-    // Clear All action
-    document.getElementById('clearBtn').addEventListener('click', () => {
-      if (Object.keys(coloredCells).length > 0) {
-        saveState();
-        coloredCells = {};
-        renderGrid();
-      }
-    });
+    // Window Resize Handler
+    window.addEventListener('resize', resizeCanvas);
 
-    // Initial render
-    renderGrid();
+    // Initial Setup
+    resizeCanvas();
   </script>
 </body>
 </html>
