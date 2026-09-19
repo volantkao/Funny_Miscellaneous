@@ -260,87 +260,17 @@
     const W = Math.sqrt(3) * R;
     const H = 2 * R;
 
-    // Helper to generate axial coordinates for shapes
-    function generateLayout(type) {
+    // Full blank hexagonal grid: every cell is editable.
+    function generateBlankLayout() {
       const cells = [];
-      
-      if (type === 'fortress') {
-        // Fortress layout reconstructed from the uploaded reference image.
-        // Black = outer frame / non-editable
-        // Gray  = fixed / non-editable
-        // White = editable cells inside the frame
-
-        const blackCells = [
-          [ 2,-4], [ 3,-4], [ 4,-4], [ 5,-4],
-          [ 0,-3], [ 2,-3], [ 4,-3],
-          [ 0,-2], [ 5,-2],
-          [-2,-1], [ 4,-1],
-          [-2, 0], [ 5, 0],
-          [-4, 1], [ 4, 1],
-          [-4, 2], [ 5, 2],
-          [-5, 3], [ 3, 3],
-          [-4, 4], [-3, 4], [-2, 4], [-1, 4],
-          [ 0, 4], [ 1, 4], [ 2, 4], [ 3, 4]
-        ];
-
-        const grayCells = [
-          [ 1,-1],
-          [-1, 2],
-          [ 2, 2]
-        ];
-
-        // Cells enclosed by the black frame.
-        const whiteCells = [
-          [ 1,-3], [ 3,-3],
-          [ 1,-2], [ 2,-2], [ 3,-2], [ 4,-2],
-          [-1,-1], [ 0,-1], [ 1,-1], [ 2,-1], [ 3,-1],
-          [-1, 0], [ 0, 0], [ 1, 0], [ 2, 0], [ 3, 0], [ 4, 0],
-          [-3, 1], [-2, 1], [-1, 1], [ 0, 1], [ 1, 1], [ 2, 1], [ 3, 1],
-          [-3, 2], [-2, 2], [-1, 2], [ 0, 2], [ 1, 2], [ 2, 2], [ 3, 2], [ 4, 2],
-          [-4, 3], [-3, 3], [-2, 3], [-1, 3], [ 0, 3], [ 1, 3], [ 2, 3]
-        ];
-
-        blackCells.forEach(([q, r]) => cells.push({ q, r, type: 'black' }));
-        grayCells.forEach(([q, r]) => cells.push({ q, r, type: 'gray' }));
-        whiteCells.forEach(([q, r]) => cells.push({ q, r, type: 'white' }));
- 
-      else if (type === 'xuanyuan') {
-        // Oval shape
-        for (let q = -6; q <= 6; q++) {
-          for (let r = -4; r <= 4; r++) {
-            const dist = (Math.abs(q) + Math.abs(q + r) + Math.abs(r)) / 2;
-            // Elliptical condition
-            if (Math.abs(q) > 4 && Math.abs(r) > 2) continue;
-            if (dist > 5) continue;
-
-            let cType = 'white';
-            // Boundary roughly based on distance and edges
-            if (dist === 5 || Math.abs(q) === 5 || Math.abs(r) === 4) cType = 'black';
-            else if ((q === -2 && r === 0) || (q === 2 && r === -1)) cType = 'gray';
-
-            cells.push({ q, r, type: cType });
-          }
-        }
-      } 
-      else if (type === 'tianxuan') {
-        // Teardrop / Triangle shape
-        for (let q = -5; q <= 5; q++) {
-          for (let r = -5; r <= 5; r++) {
-            // Pointy top (negative r)
-            if (r < -4) { if (q !== 0) continue; }
-            else if (r < -2) { if (Math.abs(q) > 1) continue; }
-            else if (r < 0) { if (Math.abs(q) > 3) continue; }
-            else if (r > 3) continue;
-            
-            const dist = (Math.abs(q) + Math.abs(q + r) + Math.abs(r)) / 2;
-            if (dist > 5) continue;
-
-            let cType = 'white';
-            // Border logic (rough outline)
-            if (r === 3 || dist === 5 || (r === -4 && q === 0) || (r === -3 && Math.abs(q) === 1) || (r === -1 && Math.abs(q) === 3)) cType = 'black';
-            else if (q === 0 && r === 1 || q === -2 && r === 2) cType = 'gray';
-
-            cells.push({ q, r, type: cType });
+      // Large enough to fill the entire 800x500 editing area.
+      // Coordinates are axial; every generated cell starts as white/editable.
+      for (let q = -12; q <= 12; q++) {
+        for (let r = -9; r <= 9; r++) {
+          const { x, y } = hexToPixel(q, r);
+          // Keep cells whose centers are close enough to the visible canvas.
+          if (x >= -420 && x <= 420 && y >= -270 && y <= 270) {
+            cells.push({ q, r, type: 'white' });
           }
         }
       }
@@ -348,9 +278,9 @@
     }
 
     const layouts = {
-      fortress: generateLayout('fortress'),
-      xuanyuan: generateLayout('xuanyuan'),
-      tianxuan: generateLayout('tianxuan')
+      fortress: generateBlankLayout(),
+      xuanyuan: generateBlankLayout(),
+      tianxuan: generateBlankLayout()
     };
 
     let currentShip = 'fortress';
